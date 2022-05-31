@@ -14,6 +14,12 @@ public class Agent : MonoBehaviour
         ObstacleAvoidance
     };
 
+    [Header("[Game Variables]")]
+    [SerializeField] bool m_HaveFlag = false;
+    [SerializeField] bool m_SavedAgent = false;
+    GameController m_GameController;
+
+    [Header("[Movement Variables]")]
     public float m_Mass = 1;
     public Vector2 m_Velocity;
     [SerializeField] float m_MaxVelocity;
@@ -24,6 +30,8 @@ public class Agent : MonoBehaviour
     [SerializeField] Unity.VisualScripting.StateMachine m_StateMachine;
     [SerializeField] Vector2 m_Target;
     [SerializeField] Agent m_AgentTarget;
+    public delegate Vector2 BehaviourDelegate();
+    List<BehaviourDelegate> m_ActiveSteeringBehaviours = new List<BehaviourDelegate>();
     [SerializeField] DrawSteeringBehaviour m_DrawSteeringBehaviour;
 
     [Header("Arrive Variables")]
@@ -43,7 +51,7 @@ public class Agent : MonoBehaviour
 
     void Start()
     {
-        
+        m_GameController = FindObjectOfType<GameController>();
     }
 
     void Update()
@@ -57,20 +65,80 @@ public class Agent : MonoBehaviour
             RaycastHit2D Hit = Physics2D.Raycast(Camera.main.ScreenToWorldPoint(Input.mousePosition), Vector2.zero);
             if (Hit.collider != null)
             {
-                if (Hit.transform.tag == "Player" && Hit.transform.gameObject == gameObject) GameController.m_Player = this;
+                if (Hit.transform.tag == "Player" && Hit.transform.gameObject == gameObject) m_GameController.m_Player = this;
+            }
+        }
+
+        //Reset the agent when reaching to their side
+        if (tag == "Player")
+        {
+            if (transform.position.x > 0)
+            {
+                if (m_HaveFlag)
+                {
+                    m_GameController.m_EnemyTeam.Flags--;
+                    m_HaveFlag = false;
+                }
+                else if (m_SavedAgent)
+                {
+                    m_SavedAgent = false;
+                }
+            }
+        }
+        else
+        {
+            if (transform.position.x < 0)
+            {
+                if (m_HaveFlag)
+                {
+                    m_GameController.m_PlayerTeam.Flags--;
+                    m_HaveFlag = false;
+                }
+                else if (m_SavedAgent)
+                {
+                    m_SavedAgent = false;
+                }
             }
         }
 
         //Choose movement whether it is the player or not
-        if (GameController.m_Player == this)
+        if (m_GameController.m_Player == this)
         {
             m_StateMachine.enabled = false;
-            m_Target = transform.position + (100.0f * new Vector3(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")));
-            m_Force = Arrive();
+
+            m_Target = transform.position + (2.0f * m_MaxVelocity * new Vector3(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")));
+            m_Force = Seek();
         }
         else
         {
             m_StateMachine.enabled = true;
+            
+            //Weighted Truncated Running Sum with Prioritization
+            if (m_ActiveSteeringBehaviours.Count != 0)
+            {
+                float RunningTotal = 0;
+                foreach (var Behaviour in m_ActiveSteeringBehaviours)
+                {
+                    Vector2 SteeringForce = Behaviour();
+                    float Surplus = m_MaxForce - RunningTotal;
+            
+                    if (Surplus > SteeringForce.magnitude)
+                    {
+                        RunningTotal += SteeringForce.magnitude;
+                    }
+                    else if (Surplus < SteeringForce.magnitude)
+                    {
+                        Truncate(SteeringForce, m_MaxForce);
+                        RunningTotal += SteeringForce.magnitude;
+                    }
+                    else
+                    {
+                        break;
+                    }
+
+                    m_Force += SteeringForce;
+                }
+            }
         }
 
         //Move the agent
@@ -136,10 +204,18 @@ public class Agent : MonoBehaviour
 
     Vector2 Wander()
     {
-        float WanderAngle = Random.Range(0.0f, 360.0f) * Mathf.Deg2Rad;
-        m_Target = new Vector2(Mathf.Cos(WanderAngle), Mathf.Sin(WanderAngle));
-        m_Target *= m_WanderRadius;
-        m_Target += new Vector2(transform.position.x, transform.position.y) + (m_Velocity.normalized * m_WanderDistance);
+        if (m_WanderTimer <= 0)
+        {
+            float WanderAngle = Random.Range(0.0f, 360.0f) * Mathf.Deg2Rad;
+            m_Target = new Vector2(Mathf.Cos(WanderAngle), Mathf.Sin(WanderAngle));
+            m_Target *= m_WanderRadius;
+            m_Target += new Vector2(transform.position.x, transform.position.y) + (m_Velocity.normalized * m_WanderDistance);
+            m_WanderTimer = m_WanderCooldown;
+        }
+        else
+        {
+            m_WanderTimer -= Time.deltaTime;
+        }
 
         return Seek();
     }
@@ -167,71 +243,79 @@ public class Agent : MonoBehaviour
         return DesiredVelocity - m_Velocity;
     }
 
-    Vector2 CircleObjectAvoidance()
+    Vector2 ObjectAvoidance()
     {
-        //Find agents within current speed
-        Collider2D[] Neighbours = Physics2D.OverlapCircleAll(transform.position, m_Velocity.magnitude);
+        ////Find agents within current speed
+        //Collider2D[] Neighbours = Physics2D.OverlapCircleAll(transform.position, m_Velocity.magnitude);
+        //
+        ////---------------------------------------
+        //Vector3 PriorityNeibourPosition = Vector3.zero;
+        //float PriorityNeibourRadius = 0;
+        //float PriorityNeibourIntersection = Mathf.Infinity;
+        //
+        //foreach (Collider2D Neighbour in Neighbours)
+        //{
+        //    if (Neighbour.GetComponent<Agent>() == null) continue;
+        //    if (Vector3.Dot((Neighbour.transform.position - transform.position).normalized, transform.up) <= 0) continue;
+        //
+        //    //Expand Radius
+        //    float NeighbourRadius = GetComponent<CircleCollider2D>().radius + (m_LocalSpaceWidth / 2.0f);
+        //    NeighbourRadius *= m_ObstacleRadiusMultiply;
+        //
+        //    //-------------------------------------
+        //    void CircleLineIntersection(ref Vector2 _Intersect1, ref Vector2 _Intersect2, Vector2 _Centre, float _Radius)
+        //    {
+        //        //https://mathworld.wolfram.com/Circle-LineIntersection.html
+        //        Vector2 d = transform.up + Neighbour.transform.position;
+        //    }
+        //
+        //
+        //    //Find and compare intersections
+        //    //fB and fC represent the variables in the quadratic formula used to calculate the circle intersection with the y-axis
+        //    float fB = -2.0f * NeighbourLocalPosition.x;
+        //    float fC = (NeighbourLocalPosition.x * NeighbourLocalPosition.x) - (NeighbourRadius * NeighbourRadius) + (NeighbourLocalPosition.y * NeighbourLocalPosition.y);
+        //    
+        //    float fIntersection = (-fB + Mathf.Sqrt((fB * fB) - (4 * fC))) / 2.0f;
+        //    if (fIntersection < PriorityNeibourIntersection)
+        //    {
+        //        PriorityNeibourPosition = NeighbourLocalPosition;
+        //        PriorityNeibourRadius = NeighbourRadius;
+        //        PriorityNeibourIntersection = fIntersection;
+        //    }
+        //
+        //    fIntersection = (-fB - Mathf.Sqrt((fB * fB) - (4 * fC))) / 2.0f;
+        //    if (fIntersection < PriorityNeibourIntersection)
+        //    {
+        //        PriorityNeibourPosition = NeighbourLocalPosition;
+        //        PriorityNeibourRadius = NeighbourRadius;
+        //        PriorityNeibourIntersection = fIntersection;
+        //    }
+        //    }
+        //
+        //    //---------------------------------------------
+        //    if (PriorityNeibourIntersection == Mathf.Infinity) return Vector2.zero;
+        //
+        //    //--------------------------------
+        //    Vector2 v2fForce = new Vector2
+        //    (
+        //        -PriorityNeibourPosition.magnitude, //BrakingForce
+        //    	(PriorityNeibourRadius - PriorityNeibourPosition.y) * PriorityNeibourPosition.magnitude //Lateral Force
+        //    );
+        //    v2fForce = transform.rotation * v2fForce;
+        //
+        //    return v2fForce;
 
-        //---------------------------------------
-        Vector3 PriorityNeibourPosition = Vector3.zero;
-        float PriorityNeibourRadius = 0;
-        float PriorityNeibourIntersection = Mathf.Infinity;
-
-        foreach (Collider2D Neighbour in Neighbours)
-        {
-            if (Neighbour.GetComponent<Agent>() == null) continue;
-
-            //Convert to local space
-            Vector3 NeighbourLocalPosition = Quaternion.Inverse(transform.rotation) * (Neighbour.transform.position - transform.position);
-
-            //Discard neighbours behind the agent
-            if (NeighbourLocalPosition.x < 0) continue;
-
-            //Expand Radius
-            float NeighbourRadius = GetComponent<CircleCollider2D>().radius + (m_LocalSpaceWidth / 2.0f);
-            NeighbourRadius *= m_ObstacleRadiusMultiply;
-
-            //Discard neighbours to far away to be detected
-            if (Mathf.Abs(NeighbourLocalPosition.y) > NeighbourRadius) continue;
-
-            //Find and compare intersections
-                //fB and fC represent the variables in the quadratic formula used to calculate the circle intersection with the y-axis
-            float fB = -2.0f * NeighbourLocalPosition.x;
-            float fC = (NeighbourLocalPosition.x * NeighbourLocalPosition.x) - (NeighbourRadius * NeighbourRadius) + (NeighbourLocalPosition.y * NeighbourLocalPosition.y);
-            
-            float fIntersection = (-fB + Mathf.Sqrt((fB * fB) - (4 * fC))) / 2.0f;
-            if (fIntersection < PriorityNeibourIntersection)
-            {
-                PriorityNeibourPosition = NeighbourLocalPosition;
-                PriorityNeibourRadius = NeighbourRadius;
-                PriorityNeibourIntersection = fIntersection;
-            }
-
-            fIntersection = (-fB - Mathf.Sqrt((fB * fB) - (4 * fC))) / 2.0f;
-            if (fIntersection < PriorityNeibourIntersection)
-            {
-                PriorityNeibourPosition = NeighbourLocalPosition;
-                PriorityNeibourRadius = NeighbourRadius;
-                PriorityNeibourIntersection = fIntersection;
-            }
-        }
-
-        //---------------------------------------------
-        if (PriorityNeibourIntersection == Mathf.Infinity) return Vector2.zero;
-
-        //--------------------------------
-        Vector2 v2fForce = new Vector2
-        (
-            -PriorityNeibourPosition.magnitude, //BrakingForce
-			(PriorityNeibourRadius - PriorityNeibourPosition.y) * PriorityNeibourPosition.magnitude //Lateral Force
-		);
-        v2fForce = transform.rotation * v2fForce;
-
-        return v2fForce;
+        return Vector2.zero;
     }
     #endregion Steering Behaviours
 
     #region States
+    public void DefaultEnter()
+    {
+        m_ActiveSteeringBehaviours.Clear();
+        m_ActiveSteeringBehaviours.Add(Sepparation);
+        m_ActiveSteeringBehaviours.Add(Wander);
+    }
 
     #endregion States
 
@@ -253,6 +337,9 @@ public class Agent : MonoBehaviour
             {
                 Vector3 WanderTarget = transform.position + (transform.up * m_WanderDistance);
                 Gizmos.DrawWireSphere(WanderTarget, m_WanderRadius);
+
+                Gizmos.color = Color.yellow;
+                Gizmos.DrawWireSphere(m_Target, 0.2f);
                 break;
             }
             case DrawSteeringBehaviour.Separation:
@@ -266,11 +353,5 @@ public class Agent : MonoBehaviour
                 break;
             }
         }
-
-        //[Header("Separation Variables")]
-        //[SerializeField] float m_SeparationDistance;
-        //[Header("Obstacle Avoidance Variables")]
-        //[SerializeField] float m_LocalSpaceWidth;
-        //[SerializeField] float m_ObstacleRadiusMultiply;
     }
 }

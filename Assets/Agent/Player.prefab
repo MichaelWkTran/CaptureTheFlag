@@ -49,11 +49,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0ccbc629899be3a4ab3c0ff5646933e6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  m_HaveFlag: 0
+  m_SavedAgent: 0
   m_Mass: 1
   m_Velocity: {x: 0, y: 0}
   m_MaxVelocity: 10
   m_Force: {x: 0, y: 0}
-  m_MaxForce: 6
+  m_MaxForce: 20
   m_StateMachine: {fileID: 6555311732202812204}
   m_Target: {x: 0, y: 0}
   m_AgentTarget: {fileID: 0}
@@ -61,10 +63,10 @@ MonoBehaviour:
   m_SlowingRadius: 4
   m_MaxPrediction: 6
   m_WanderTimer: 0
-  m_WanderCooldown: 0
-  m_WanderDistance: 3.32
-  m_WanderRadius: 1.29
-  m_SeparationDistance: 0.8
+  m_WanderCooldown: 0.2
+  m_WanderDistance: 7
+  m_WanderRadius: 4
+  m_SeparationDistance: 2
   m_LocalSpaceWidth: 1
   m_ObstacleRadiusMultiply: 1
 --- !u!33 &5463376262299622437
@@ -131,7 +133,7 @@ CircleCollider2D:
   m_IsTrigger: 0
   m_UsedByEffector: 0
   m_UsedByComposite: 0
-  m_Offset: {x: 0, y: -0.000000059604645}
+  m_Offset: {x: 0, y: 0}
   serializedVersion: 2
   m_Radius: 1
 --- !u!114 &8438375489235116784

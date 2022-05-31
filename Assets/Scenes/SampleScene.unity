@@ -130,10 +130,6 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 7200076886131323724, guid: 5735b6c204758b84fa872d2994736a76, type: 3}
-      propertyPath: m_Offset.y
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 8589988444180367674, guid: 5735b6c204758b84fa872d2994736a76, type: 3}
       propertyPath: m_Name
       value: Player
@@ -195,7 +191,7 @@ GameObject:
   - component: {fileID: 424088345}
   - component: {fileID: 424088344}
   m_Layer: 0
-  m_Name: GameObject
+  m_Name: Game Controller
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -213,9 +209,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0a56cb345909ed34d989637b843312fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_PlayerAgents: []
-  m_EnemyAgents: []
   m_Camera: {fileID: 956010832}
+  m_Player: {fileID: 0}
+  m_MaxFlags: 0
 --- !u!4 &424088345
 Transform:
   m_ObjectHideFlags: 0
@@ -285,7 +281,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 10
+  orthographic size: 15
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -389,7 +385,7 @@ MonoBehaviour:
   m_Follow: {fileID: 0}
   m_Lens:
     FieldOfView: 60
-    OrthographicSize: 10
+    OrthographicSize: 15
     NearClipPlane: 0.3
     FarClipPlane: 1000
     Dutch: 0
