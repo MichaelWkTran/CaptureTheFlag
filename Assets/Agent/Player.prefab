@@ -55,7 +55,7 @@ MonoBehaviour:
   m_Velocity: {x: 0, y: 0}
   m_MaxVelocity: 10
   m_Force: {x: 0, y: 0}
-  m_MaxForce: 20
+  m_MaxForce: 40
   m_StateMachine: {fileID: 6555311732202812204}
   m_Target: {x: 0, y: 0}
   m_AgentTarget: {fileID: 0}
@@ -63,9 +63,10 @@ MonoBehaviour:
   m_SlowingRadius: 4
   m_MaxPrediction: 6
   m_WanderTimer: 0
-  m_WanderCooldown: 0.2
-  m_WanderDistance: 7
+  m_WanderCooldown: 2
+  m_WanderDistance: 10
   m_WanderRadius: 4
+  m_WanderAngle: 0
   m_SeparationDistance: 2
   m_LocalSpaceWidth: 1
   m_ObstacleRadiusMultiply: 1

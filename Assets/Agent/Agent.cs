@@ -43,6 +43,7 @@ public class Agent : MonoBehaviour
     [SerializeField] float m_WanderCooldown;
     [SerializeField] float m_WanderDistance;
     [SerializeField] float m_WanderRadius;
+    Vector2 m_WanderTarget;
     [Header("Separation Variables")]
     [SerializeField] float m_SeparationDistance;
     [Header("Obstacle Avoidance Variables")]
@@ -112,37 +113,11 @@ public class Agent : MonoBehaviour
         else
         {
             m_StateMachine.enabled = true;
-            
-            //Weighted Truncated Running Sum with Prioritization
-            if (m_ActiveSteeringBehaviours.Count != 0)
-            {
-                float RunningTotal = 0;
-                foreach (var Behaviour in m_ActiveSteeringBehaviours)
-                {
-                    Vector2 SteeringForce = Behaviour();
-                    float Surplus = m_MaxForce - RunningTotal;
-            
-                    if (Surplus > SteeringForce.magnitude)
-                    {
-                        RunningTotal += SteeringForce.magnitude;
-                    }
-                    else if (Surplus < SteeringForce.magnitude)
-                    {
-                        Truncate(SteeringForce, m_MaxForce);
-                        RunningTotal += SteeringForce.magnitude;
-                    }
-                    else
-                    {
-                        break;
-                    }
-
-                    m_Force += SteeringForce;
-                }
-            }
         }
 
         //Move the agent
         m_Velocity += (Truncate(m_Force, m_MaxForce) / m_Mass) * Time.deltaTime;
+        m_Velocity = Truncate(m_Velocity, m_MaxVelocity);
         transform.position += new Vector3(m_Velocity.x, m_Velocity.y) * Time.deltaTime;
         transform.rotation = Quaternion.Euler(0.0f, 0.0f, (Mathf.Atan2(m_Velocity.y, m_Velocity.x) * Mathf.Rad2Deg) - 90.0f);
     }
@@ -207,9 +182,9 @@ public class Agent : MonoBehaviour
         if (m_WanderTimer <= 0)
         {
             float WanderAngle = Random.Range(0.0f, 360.0f) * Mathf.Deg2Rad;
-            m_Target = new Vector2(Mathf.Cos(WanderAngle), Mathf.Sin(WanderAngle));
-            m_Target *= m_WanderRadius;
-            m_Target += new Vector2(transform.position.x, transform.position.y) + (m_Velocity.normalized * m_WanderDistance);
+            m_WanderTarget = m_WanderRadius * new Vector2(Mathf.Cos(WanderAngle), Mathf.Sin(WanderAngle));
+            m_WanderTarget += m_Velocity.normalized * m_WanderDistance;
+
             m_WanderTimer = m_WanderCooldown;
         }
         else
@@ -217,14 +192,17 @@ public class Agent : MonoBehaviour
             m_WanderTimer -= Time.deltaTime;
         }
 
+        m_Target = m_WanderTarget + new Vector2(transform.position.x, transform.position.y);
+
         return Seek();
     }
 
     Vector2 Sepparation()
     {
-        Vector2 DesiredVelocity = Vector2.zero;
-
         Collider2D[] Neighbours = Physics2D.OverlapCircleAll(transform.position, GetComponent<CircleCollider2D>().radius + m_SeparationDistance);
+        if (Neighbours.Length <= 0) return Vector2.zero;
+
+        Vector2 DesiredVelocity = Vector2.zero;
 
         int NeighbourCount = 0;
         foreach (Collider2D Neighbour in Neighbours)
@@ -312,9 +290,8 @@ public class Agent : MonoBehaviour
     #region States
     public void DefaultEnter()
     {
-        m_ActiveSteeringBehaviours.Clear();
-        m_ActiveSteeringBehaviours.Add(Sepparation);
-        m_ActiveSteeringBehaviours.Add(Wander);
+        m_Force = Sepparation();
+        m_Force += Wander() * ((m_MaxForce - m_Force.magnitude) / m_MaxForce);
     }
 
     #endregion States
@@ -338,8 +315,8 @@ public class Agent : MonoBehaviour
                 Vector3 WanderTarget = transform.position + (transform.up * m_WanderDistance);
                 Gizmos.DrawWireSphere(WanderTarget, m_WanderRadius);
 
-                Gizmos.color = Color.yellow;
-                Gizmos.DrawWireSphere(m_Target, 0.2f);
+                Gizmos.color = Color.blue;
+                Gizmos.DrawWireSphere(m_Target, 0.5f);
                 break;
             }
             case DrawSteeringBehaviour.Separation:
