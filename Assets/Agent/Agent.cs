@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Pathfinding;
 
 public class Agent : MonoBehaviour
 {
@@ -20,11 +21,11 @@ public class Agent : MonoBehaviour
     GameController m_GameController;
 
     [Header("[Movement Variables]")]
-    public float m_Mass = 1;
-    public Vector2 m_Velocity;
     [SerializeField] float m_MaxVelocity;
     public Vector2 m_Force;
     [SerializeField] float m_MaxForce;
+    [SerializeField] float m_CurrentSpeed;
+
 
     [Header("[Steering Behaviour Variables]")]
     [SerializeField] Unity.VisualScripting.StateMachine m_StateMachine;
@@ -50,9 +51,28 @@ public class Agent : MonoBehaviour
     [SerializeField] float m_LocalSpaceWidth;
     [SerializeField] float m_ObstacleRadiusMultiply = 1;
 
+    [Header("[Pathfinding Variables]")]
+    public float NextWaypointDistance = 3.0f;
+    [SerializeField] Path path;
+    int currentWaypoint;
+    bool reached;
+
+    public Seeker seeker;
+    public Rigidbody2D rb;
+
     void Start()
     {
         m_GameController = FindObjectOfType<GameController>();
+        seeker.StartPath(transform.position, m_Target, OnPathComplete);
+    }
+
+    void OnPathComplete(Path p)
+    {
+        if (!p.error)
+        {
+            path = p;
+            currentWaypoint = 0;
+        }
     }
 
     void Update()
@@ -101,7 +121,10 @@ public class Agent : MonoBehaviour
                 }
             }
         }
+    }
 
+    void FixedUpdate()
+    {
         //Choose movement whether it is the player or not
         if (m_GameController.m_Player == this)
         {
@@ -116,10 +139,12 @@ public class Agent : MonoBehaviour
         }
 
         //Move the agent
-        m_Velocity += (Truncate(m_Force, m_MaxForce) / m_Mass) * Time.deltaTime;
-        m_Velocity = Truncate(m_Velocity, m_MaxVelocity);
-        transform.position += new Vector3(m_Velocity.x, m_Velocity.y) * Time.deltaTime;
-        transform.rotation = Quaternion.Euler(0.0f, 0.0f, (Mathf.Atan2(m_Velocity.y, m_Velocity.x) * Mathf.Rad2Deg) - 90.0f);
+        rb.AddForce(Truncate(m_Force, m_MaxForce));
+        m_CurrentSpeed = rb.velocity.magnitude;
+        if (rb.velocity != Vector2.zero)
+        {
+            transform.rotation = Quaternion.Euler(0.0f, 0.0f, (Mathf.Atan2(rb.velocity.y, rb.velocity.x) * Mathf.Rad2Deg) - 90.0f);
+        }
     }
 
     Vector2 Truncate(Vector2 _Vector, float _MaxMagnitude)
@@ -132,34 +157,34 @@ public class Agent : MonoBehaviour
     Vector2 Seek()
     {
         Vector2 DesiredVelocity = (m_Target - new Vector2(transform.position.x, transform.position.y)).normalized * m_MaxVelocity;
-        return DesiredVelocity - m_Velocity;
+        return DesiredVelocity - rb.velocity;
     }
 
     Vector2 Flee()
     {
         Vector2 DesiredVelocity = (new Vector2(transform.position.x, transform.position.y) - m_Target).normalized * m_MaxVelocity;
-        return DesiredVelocity - m_Velocity;
+        return DesiredVelocity - rb.velocity;
     }
 
     Vector2 Pursue()
     {
-        float Speed = m_Velocity.magnitude;
+        float Speed = rb.velocity.magnitude;
         float Distance = Vector2.Distance(m_AgentTarget.transform.position, transform.position);
 
         float Prediction = (Speed <= Distance / m_MaxPrediction) ? m_MaxPrediction : Distance / Speed;
 
-        m_Target = new Vector2(m_AgentTarget.transform.position.x, m_AgentTarget.transform.position.y) + (m_AgentTarget.m_Velocity * Prediction);
+        m_Target = new Vector2(m_AgentTarget.transform.position.x, m_AgentTarget.transform.position.y) + (m_AgentTarget.rb.velocity * Prediction);
         return Seek();
     }
 
     Vector2 Evade()
     {
-        float Speed = m_Velocity.magnitude;
+        float Speed = rb.velocity.magnitude;
         float Distance = Vector2.Distance(m_AgentTarget.transform.position, transform.position);
 
         float Prediction = (Speed <= Distance / m_MaxPrediction) ? m_MaxPrediction : Distance / Speed;
 
-        m_Target = new Vector2(m_AgentTarget.transform.position.x, m_AgentTarget.transform.position.y) + (m_AgentTarget.m_Velocity * Prediction);
+        m_Target = new Vector2(m_AgentTarget.transform.position.x, m_AgentTarget.transform.position.y) + (m_AgentTarget.rb.velocity * Prediction);
         return Flee();
     }
 
@@ -171,7 +196,7 @@ public class Agent : MonoBehaviour
         if (Distance < m_SlowingRadius)
         {
             Vector2 v2fDesiredVelocity = TargetOffset.normalized * m_MaxVelocity * (Distance / m_SlowingRadius);
-            return v2fDesiredVelocity - m_Velocity;
+            return v2fDesiredVelocity - rb.velocity;
         }
 
         return Seek();
@@ -183,7 +208,7 @@ public class Agent : MonoBehaviour
         {
             float WanderAngle = Random.Range(0.0f, 360.0f) * Mathf.Deg2Rad;
             m_WanderTarget = m_WanderRadius * new Vector2(Mathf.Cos(WanderAngle), Mathf.Sin(WanderAngle));
-            m_WanderTarget += m_Velocity.normalized * m_WanderDistance;
+            m_WanderTarget += rb.velocity.normalized * m_WanderDistance;
 
             m_WanderTimer = m_WanderCooldown;
         }
@@ -218,72 +243,78 @@ public class Agent : MonoBehaviour
         DesiredVelocity /= NeighbourCount;
         DesiredVelocity = DesiredVelocity.normalized * m_MaxVelocity;
 
-        return DesiredVelocity - m_Velocity;
+        return DesiredVelocity - rb.velocity;
     }
 
     Vector2 ObjectAvoidance()
     {
-        ////Find agents within current speed
-        //Collider2D[] Neighbours = Physics2D.OverlapCircleAll(transform.position, m_Velocity.magnitude);
-        //
-        ////---------------------------------------
-        //Vector3 PriorityNeibourPosition = Vector3.zero;
-        //float PriorityNeibourRadius = 0;
-        //float PriorityNeibourIntersection = Mathf.Infinity;
-        //
-        //foreach (Collider2D Neighbour in Neighbours)
-        //{
-        //    if (Neighbour.GetComponent<Agent>() == null) continue;
-        //    if (Vector3.Dot((Neighbour.transform.position - transform.position).normalized, transform.up) <= 0) continue;
-        //
-        //    //Expand Radius
-        //    float NeighbourRadius = GetComponent<CircleCollider2D>().radius + (m_LocalSpaceWidth / 2.0f);
-        //    NeighbourRadius *= m_ObstacleRadiusMultiply;
-        //
-        //    //-------------------------------------
-        //    void CircleLineIntersection(ref Vector2 _Intersect1, ref Vector2 _Intersect2, Vector2 _Centre, float _Radius)
-        //    {
-        //        //https://mathworld.wolfram.com/Circle-LineIntersection.html
-        //        Vector2 d = transform.up + Neighbour.transform.position;
-        //    }
-        //
-        //
-        //    //Find and compare intersections
-        //    //fB and fC represent the variables in the quadratic formula used to calculate the circle intersection with the y-axis
-        //    float fB = -2.0f * NeighbourLocalPosition.x;
-        //    float fC = (NeighbourLocalPosition.x * NeighbourLocalPosition.x) - (NeighbourRadius * NeighbourRadius) + (NeighbourLocalPosition.y * NeighbourLocalPosition.y);
-        //    
-        //    float fIntersection = (-fB + Mathf.Sqrt((fB * fB) - (4 * fC))) / 2.0f;
-        //    if (fIntersection < PriorityNeibourIntersection)
-        //    {
-        //        PriorityNeibourPosition = NeighbourLocalPosition;
-        //        PriorityNeibourRadius = NeighbourRadius;
-        //        PriorityNeibourIntersection = fIntersection;
-        //    }
-        //
-        //    fIntersection = (-fB - Mathf.Sqrt((fB * fB) - (4 * fC))) / 2.0f;
-        //    if (fIntersection < PriorityNeibourIntersection)
-        //    {
-        //        PriorityNeibourPosition = NeighbourLocalPosition;
-        //        PriorityNeibourRadius = NeighbourRadius;
-        //        PriorityNeibourIntersection = fIntersection;
-        //    }
-        //    }
-        //
-        //    //---------------------------------------------
-        //    if (PriorityNeibourIntersection == Mathf.Infinity) return Vector2.zero;
-        //
-        //    //--------------------------------
-        //    Vector2 v2fForce = new Vector2
-        //    (
-        //        -PriorityNeibourPosition.magnitude, //BrakingForce
-        //    	(PriorityNeibourRadius - PriorityNeibourPosition.y) * PriorityNeibourPosition.magnitude //Lateral Force
-        //    );
-        //    v2fForce = transform.rotation * v2fForce;
-        //
-        //    return v2fForce;
+        //Find agents within current speed
+        Collider2D[] Neighbours = Physics2D.OverlapCircleAll(transform.position, rb.velocity.magnitude);
+        
+        //---------------------------------------
+        Vector3 PriorityNeibourPosition = Vector3.zero;
+        float PriorityNeibourRadius = 0;
+        float PriorityNeibourDistance = Mathf.Infinity;
+        
+        foreach (Collider2D Neighbour in Neighbours)
+        {
+            //Ignore checking this agent
+            if (Neighbour.GetComponent<Agent>() == null) continue;
+            //Ignore any obstacles behind the agent
+            if (Vector3.Dot((Neighbour.transform.position - transform.position).normalized, transform.up) <= 0) continue;
 
-        return Vector2.zero;
+            //Expand Obstacle Radius
+            float NeighbourRadius = Neighbour.GetComponent<CircleCollider2D>().radius + (m_LocalSpaceWidth / 2.0f);
+            NeighbourRadius *= m_ObstacleRadiusMultiply;
+
+            //Find intersections
+            //https://answers.unity.com/questions/1658184/circle-line-intersection-points.html
+            Vector2 Intersect1, Intersect2;
+            Vector2 LineSegmentStart = transform.position;
+            Vector2 LineSegmentEnd = transform.position + new Vector3(rb.velocity.x, rb.velocity.y);
+
+            Vector2 dp = LineSegmentEnd - LineSegmentStart;
+
+            float a = Vector2.Dot(dp, dp);
+            float b = 2 * Vector2.Dot(dp, LineSegmentStart - new Vector2(Neighbour.transform.position.x, Neighbour.transform.position.y));
+            float c = Vector2.Dot(Neighbour.transform.position, Neighbour.transform.position)
+                      - 2 * Vector2.Dot(Neighbour.transform.position, LineSegmentStart) + 
+                      Vector2.Dot(LineSegmentStart, LineSegmentStart) - NeighbourRadius * NeighbourRadius;
+            float bb4ac = b * b - 4 * a * c;
+            if (Mathf.Abs(a) < float.Epsilon || bb4ac < 0)
+            {
+                //line does not intersect
+                continue;
+            }
+            float mu1 = (-b + Mathf.Sqrt(bb4ac)) / (2 * a);
+            float mu2 = (-b - Mathf.Sqrt(bb4ac)) / (2 * a);
+            Vector2[] sect = new Vector2[2];
+
+            Intersect1 = LineSegmentStart + mu1 * (LineSegmentEnd - LineSegmentStart);
+            Intersect2 = LineSegmentStart + mu2 * (LineSegmentEnd - LineSegmentStart);
+
+            //Compare intersections
+            if (Vector2.Distance(transform.position, Intersect1) < PriorityNeibourDistance)
+            {
+                PriorityNeibourPosition = Intersect1;
+                PriorityNeibourRadius = NeighbourRadius;
+                PriorityNeibourDistance = Vector2.Distance(transform.position, Intersect1);
+            }
+        
+            if (Vector2.Distance(transform.position, Intersect2) < PriorityNeibourDistance)
+            {
+                PriorityNeibourPosition = Intersect2;
+                PriorityNeibourRadius = NeighbourRadius;
+                PriorityNeibourDistance = Vector2.Distance(transform.position, Intersect2);
+            }
+        }
+        
+        //---------------------------------------------
+        if (PriorityNeibourDistance == Mathf.Infinity) return Vector2.zero;
+
+        //--------------------------------
+        return (transform.up * -PriorityNeibourPosition.magnitude) +
+               (transform.right * (PriorityNeibourRadius - PriorityNeibourPosition.y) * PriorityNeibourPosition.magnitude);
     }
     #endregion Steering Behaviours
 
@@ -332,3 +363,22 @@ public class Agent : MonoBehaviour
         }
     }
 }
+
+/*
+if (path == null) return; 
+
+if(currentWaypoint >= path.vectorPath.Count) { reachedEndOfPath = true; return; }
+else { reachedEndOfPath = false; }
+
+Vector2 direction ((Vector2)path.vectorPath[currentWaypoint] - rb.position).normalized;
+Vector2 force = direction * speed * Time.deltaTime;
+
+rb.AddForce(force);
+
+float distance = Vector2.Distance(rb.position, path.vectorPath[currentWaypoint]);
+
+if (distance < nextWayPointDistance)
+{
+	currentWaypoint;
+}
+ */
