@@ -26,10 +26,10 @@ public class Agent : MonoBehaviour
     [SerializeField] float m_MaxForce;
     [SerializeField] float m_CurrentSpeed;
 
-
     [Header("[Steering Behaviour Variables]")]
     [SerializeField] Unity.VisualScripting.StateMachine m_StateMachine;
-    [SerializeField] Vector2 m_Target;
+    [SerializeField] Vector2 m_SteeringTarget;
+    [SerializeField] bool m_TargetBlocked;
     [SerializeField] Agent m_AgentTarget;
     public delegate Vector2 BehaviourDelegate();
     List<BehaviourDelegate> m_ActiveSteeringBehaviours = new List<BehaviourDelegate>();
@@ -52,18 +52,25 @@ public class Agent : MonoBehaviour
     [SerializeField] float m_ObstacleRadiusMultiply = 1;
 
     [Header("[Pathfinding Variables]")]
-    public float NextWaypointDistance = 3.0f;
+    [SerializeField] Vector2 m_PathTarget;
+    [SerializeField] float NextWaypointDistance = 3.0f;
     [SerializeField] Path path;
-    int currentWaypoint;
-    bool reached;
+    [SerializeField] int currentWaypoint;
+    [SerializeField] bool reached;
 
+    [Header("[Component Variables]")]
     public Seeker seeker;
     public Rigidbody2D rb;
 
     void Start()
     {
         m_GameController = FindObjectOfType<GameController>();
-        seeker.StartPath(transform.position, m_Target, OnPathComplete);
+        InvokeRepeating("UpdatePath", 0.0f, 0.5f);
+    }
+        
+    void UpdatePath()
+    {
+        if (seeker.IsDone()) seeker.StartPath(rb.position, m_SteeringTarget, OnPathComplete);
     }
 
     void OnPathComplete(Path p)
@@ -87,6 +94,21 @@ public class Agent : MonoBehaviour
             if (Hit.collider != null)
             {
                 if (Hit.transform.tag == "Player" && Hit.transform.gameObject == gameObject) m_GameController.m_Player = this;
+            }
+        }
+
+        //Check whether there is a obstacle between the agent and the target
+        {
+            RaycastHit2D[] Hits = Physics2D.RaycastAll(transform.position, transform.up, Vector2.Distance(transform.position, m_SteeringTarget));
+            m_TargetBlocked = false;
+            foreach (RaycastHit2D Hit in Hits)
+            {
+                //Layer 6 = Obstacle;
+                if (Hit.transform.gameObject.layer == 6)
+                {
+                    m_TargetBlocked = true;
+                    break;
+                }
             }
         }
 
@@ -130,7 +152,7 @@ public class Agent : MonoBehaviour
         {
             m_StateMachine.enabled = false;
 
-            m_Target = transform.position + (2.0f * m_MaxVelocity * new Vector3(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")));
+            m_SteeringTarget = transform.position + (2.0f * m_MaxVelocity * new Vector3(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")));
             m_Force = Seek();
         }
         else
@@ -156,13 +178,13 @@ public class Agent : MonoBehaviour
     #region Steering Behaviours
     Vector2 Seek()
     {
-        Vector2 DesiredVelocity = (m_Target - new Vector2(transform.position.x, transform.position.y)).normalized * m_MaxVelocity;
+        Vector2 DesiredVelocity = (m_SteeringTarget - new Vector2(transform.position.x, transform.position.y)).normalized * m_MaxVelocity;
         return DesiredVelocity - rb.velocity;
     }
 
     Vector2 Flee()
     {
-        Vector2 DesiredVelocity = (new Vector2(transform.position.x, transform.position.y) - m_Target).normalized * m_MaxVelocity;
+        Vector2 DesiredVelocity = (new Vector2(transform.position.x, transform.position.y) - m_SteeringTarget).normalized * m_MaxVelocity;
         return DesiredVelocity - rb.velocity;
     }
 
@@ -173,7 +195,7 @@ public class Agent : MonoBehaviour
 
         float Prediction = (Speed <= Distance / m_MaxPrediction) ? m_MaxPrediction : Distance / Speed;
 
-        m_Target = new Vector2(m_AgentTarget.transform.position.x, m_AgentTarget.transform.position.y) + (m_AgentTarget.rb.velocity * Prediction);
+        m_SteeringTarget = new Vector2(m_AgentTarget.transform.position.x, m_AgentTarget.transform.position.y) + (m_AgentTarget.rb.velocity * Prediction);
         return Seek();
     }
 
@@ -184,13 +206,13 @@ public class Agent : MonoBehaviour
 
         float Prediction = (Speed <= Distance / m_MaxPrediction) ? m_MaxPrediction : Distance / Speed;
 
-        m_Target = new Vector2(m_AgentTarget.transform.position.x, m_AgentTarget.transform.position.y) + (m_AgentTarget.rb.velocity * Prediction);
+        m_SteeringTarget = new Vector2(m_AgentTarget.transform.position.x, m_AgentTarget.transform.position.y) + (m_AgentTarget.rb.velocity * Prediction);
         return Flee();
     }
 
     Vector2 Arrive()
     {
-        Vector2 TargetOffset = new Vector3(m_Target.x, m_Target.y) - transform.position;
+        Vector2 TargetOffset = new Vector3(m_SteeringTarget.x, m_SteeringTarget.y) - transform.position;
         float Distance = TargetOffset.magnitude;
 
         if (Distance < m_SlowingRadius)
@@ -217,7 +239,7 @@ public class Agent : MonoBehaviour
             m_WanderTimer -= Time.deltaTime;
         }
 
-        m_Target = m_WanderTarget + new Vector2(transform.position.x, transform.position.y);
+        m_SteeringTarget = m_WanderTarget + new Vector2(transform.position.x, transform.position.y);
 
         return Seek();
     }
@@ -316,6 +338,30 @@ public class Agent : MonoBehaviour
         return (transform.up * -PriorityNeibourPosition.magnitude) +
                (transform.right * (PriorityNeibourRadius - PriorityNeibourPosition.y) * PriorityNeibourPosition.magnitude);
     }
+
+    Vector2 WallAvoidance()
+    {
+        float WallSightLength = 0;
+        RaycastHit2D WallHit;
+        bool FoundHit = false;
+        foreach (RaycastHit2D Hit in Physics2D.RaycastAll(transform.position, transform.up, WallSightLength))
+        {
+            //Layer 6 = Obstacle;
+            if (Hit.transform.gameObject.layer == 6)
+            {
+                WallHit = Hit;
+                FoundHit = true;
+                break;
+            }
+        }
+
+        if (FoundHit == false) return Vector2.zero;
+
+        m_SteeringTarget = 
+
+        return Vector2.zero;
+    }
+
     #endregion Steering Behaviours
 
     #region States
@@ -333,7 +379,7 @@ public class Agent : MonoBehaviour
         {
             case DrawSteeringBehaviour.Arrive:
             {
-                Gizmos.DrawWireSphere(m_Target, m_SlowingRadius);
+                Gizmos.DrawWireSphere(m_SteeringTarget, m_SlowingRadius);
                 break;
             }
             case DrawSteeringBehaviour.PursueEvade:
@@ -347,7 +393,7 @@ public class Agent : MonoBehaviour
                 Gizmos.DrawWireSphere(WanderTarget, m_WanderRadius);
 
                 Gizmos.color = Color.blue;
-                Gizmos.DrawWireSphere(m_Target, 0.5f);
+                Gizmos.DrawWireSphere(m_SteeringTarget, 0.5f);
                 break;
             }
             case DrawSteeringBehaviour.Separation:
