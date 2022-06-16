@@ -4,16 +4,27 @@ using UnityEngine;
 
 public class GameController : MonoBehaviour
 {
+    [System.Serializable]
     public struct Team
     {
         public Agent[] Agents;
         public int Flags;
+        public int AgentsCaptured;
+        public Agent Attacker;
+        public bool AttackerGoal; //If false, the attacker tries to capture a flag. If true, the attacker tries to save a agent
+
+        [Header("[Game Variables]")]
+        public GameObject FlagArea;
+        public GameObject PrisonArea;
+
+        [Header("[UI Variables]")]
+        public TMPro.TextMeshProUGUI FlagCount;
+        public TMPro.TextMeshProUGUI CapturedCount;
     }
 
     [SerializeField] Cinemachine.CinemachineVirtualCamera m_Camera;
     public Team m_PlayerTeam;
     public Team m_EnemyTeam;
-    public Agent m_Player;
 
     [SerializeField] int m_MaxFlags = 3;
 
@@ -34,7 +45,7 @@ public class GameController : MonoBehaviour
                 PlayerIndex++;
             }
 
-            m_Player = m_PlayerTeam.Agents[0];
+            m_PlayerTeam.Attacker = m_PlayerTeam.Agents[0];
         }
 
         //Setup Enemy Team
@@ -56,6 +67,9 @@ public class GameController : MonoBehaviour
 
     void Update()
     {
-        m_Camera.Follow = m_Player.transform;
+        m_Camera.Follow = m_PlayerTeam.Attacker.transform;
+
+        m_PlayerTeam.FlagCount.text = "Flags:" + m_PlayerTeam.Flags.ToString();
+        m_PlayerTeam.CapturedCount.text = "Captured:" + m_PlayerTeam.AgentsCaptured.ToString();
     }
 }
