@@ -138,6 +138,7 @@ MonoBehaviour:
   m_OnOpponentSide: 0
   m_HaveFlag: 0
   m_SavedAgent: 0
+  m_AgentPrefab: {fileID: 8589988444180367674}
   m_MaxVelocity: 15
   m_Force: {x: 0, y: 0}
   m_MaxForce: 80
@@ -153,7 +154,7 @@ MonoBehaviour:
   m_WanderRadius: 4
   m_SeparationDistance: 2
   m_LocalSpaceWidth: 1
-  m_ObstacleRadiusMultiply: 1
+  m_ObstacleRadiusMultiply: 3
   m_WallLayerMask:
     serializedVersion: 2
     m_Bits: 64

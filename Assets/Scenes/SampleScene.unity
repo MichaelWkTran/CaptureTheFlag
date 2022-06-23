@@ -416,6 +416,7 @@ GameObject:
   m_Component:
   - component: {fileID: 295625330}
   - component: {fileID: 295625331}
+  - component: {fileID: 295625332}
   m_Layer: 0
   m_Name: PrisonArea
   m_TagString: Untagged
@@ -490,6 +491,32 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!61 &295625332
+BoxCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 295625329}
+  m_Enabled: 1
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_UsedByComposite: 0
+  m_Offset: {x: 0, y: 0}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0.5, y: 0.5}
+    oldSize: {x: 1, y: 1}
+    newSize: {x: 1, y: 1}
+    adaptiveTilingThreshold: 0.5
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  serializedVersion: 2
+  m_Size: {x: 1, y: 1}
+  m_EdgeRadius: 0
 --- !u!1001 &370047515
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -581,12 +608,12 @@ MonoBehaviour:
     Agents: []
     Flags: 0
     AgentsCaptured: 0
-    Attacker: {fileID: 0}
+    Attacker: {fileID: 2081230489}
     AttackerGoal: 0
     FlagArea: {fileID: 2123974344}
     PrisonArea: {fileID: 1222113175}
     FlagCount: {fileID: 1709044172}
-    CapturedCount: {fileID: 1981224126}
+    PlayerCount: {fileID: 1981224126}
   m_EnemyTeam:
     Agents: []
     Flags: 0
@@ -596,8 +623,12 @@ MonoBehaviour:
     FlagArea: {fileID: 949356740}
     PrisonArea: {fileID: 295625329}
     FlagCount: {fileID: 1713332471}
-    CapturedCount: {fileID: 2077033096}
+    PlayerCount: {fileID: 2077033096}
   m_MaxFlags: 4
+  m_MaxAgents: 4
+  m_EnemyAttackerGoal: 1
+  m_MinEnemyAttackerTime: 5
+  m_MaxEnemyAttackerTime: 8
 --- !u!4 &424088345
 Transform:
   m_ObjectHideFlags: 0
@@ -1371,7 +1402,7 @@ MonoBehaviour:
     ModeOverride: 0
     LensShift: {x: 0, y: 0}
     GateFit: 2
-    m_SensorSize: {x: 1.778152, y: 1}
+    m_SensorSize: {x: 2.0684686, y: 1}
   m_Transitions:
     m_BlendHint: 0
     m_InheritPosition: 0
@@ -1645,6 +1676,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1222113176}
   - component: {fileID: 1222113177}
+  - component: {fileID: 1222113178}
   m_Layer: 0
   m_Name: PrisonArea
   m_TagString: Untagged
@@ -1719,6 +1751,32 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!61 &1222113178
+BoxCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1222113175}
+  m_Enabled: 1
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_UsedByComposite: 0
+  m_Offset: {x: 0, y: 0}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0.5, y: 0.5}
+    oldSize: {x: 1, y: 1}
+    newSize: {x: 1, y: 1}
+    adaptiveTilingThreshold: 0.5
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  serializedVersion: 2
+  m_Size: {x: 1, y: 1}
+  m_EdgeRadius: 0
 --- !u!1 &1376814823
 GameObject:
   m_ObjectHideFlags: 0
@@ -2060,7 +2118,7 @@ RectTransform:
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: -14, y: -16}
-  m_SizeDelta: {x: 200, y: 50}
+  m_SizeDelta: {x: 300, y: 50}
   m_Pivot: {x: 1, y: 1}
 --- !u!114 &1709044172
 MonoBehaviour:
@@ -2195,7 +2253,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 14, y: -16}
-  m_SizeDelta: {x: 200, y: 50}
+  m_SizeDelta: {x: 300, y: 50}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1713332471
 MonoBehaviour:
@@ -2571,7 +2629,7 @@ GameObject:
   - component: {fileID: 1981224127}
   - component: {fileID: 1981224126}
   m_Layer: 5
-  m_Name: CapturedCount
+  m_Name: PlayerCount
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2595,7 +2653,7 @@ RectTransform:
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: -14, y: -43}
-  m_SizeDelta: {x: 200, y: 50}
+  m_SizeDelta: {x: 300, y: 50}
   m_Pivot: {x: 1, y: 1}
 --- !u!114 &1981224126
 MonoBehaviour:
@@ -2617,7 +2675,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Captured: 0'
+  m_text: 'PlayersRemaining: 4'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -2902,7 +2960,7 @@ GameObject:
   - component: {fileID: 2077033097}
   - component: {fileID: 2077033096}
   m_Layer: 5
-  m_Name: CapturedCount
+  m_Name: PlayerCount
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2926,7 +2984,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 14, y: -43}
-  m_SizeDelta: {x: 200, y: 50}
+  m_SizeDelta: {x: 300, y: 50}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &2077033096
 MonoBehaviour:
@@ -2948,7 +3006,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Captured: 0'
+  m_text: 'PlayersRemaining: 4'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -3030,6 +3088,17 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8970629871305003904, guid: 5735b6c204758b84fa872d2994736a76, type: 3}
   m_PrefabInstance: {fileID: 219553447}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &2081230489 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3721184294111770085, guid: 5735b6c204758b84fa872d2994736a76, type: 3}
+  m_PrefabInstance: {fileID: 219553447}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0ccbc629899be3a4ab3c0ff5646933e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &2092949433
 GameObject:
   m_ObjectHideFlags: 0
